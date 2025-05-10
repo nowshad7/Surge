@@ -1,0 +1,14 @@
+{
+    "name": "nsd7/realtime-queue",
+    "description": "PHP WebSocket broadcasting server without dependencies.",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+      "psr-4": {
+        "Nsd7\\RealtimeQueue\\": "src/"
+      }
+    },
+    "require": {},
+    "bin": ["bin/server.php"]
+  }
+  

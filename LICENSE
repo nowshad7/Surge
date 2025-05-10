@@ -1,0 +1,12 @@
+
+---
+
+### ✅ Long-Term Considerations (6+ Years)
+
+- **No third-party maintenance risk** — all custom code
+- **Standard protocols** (WebSocket RFC6455-compliant)
+- Can be wrapped behind **supervisord** or **systemd** for service monitoring
+- Scalable with tools like **HAProxy** or **Nginx reverse proxy**
+- You can version, tag, and update features without external dependencies breaking it
+
+---
