@@ -90,6 +90,54 @@ abstract class TestCase
         return $header . $mask . $masked;
     }
 
+    /**
+     * Decode and return all Pusher messages a connection has queued to send,
+     * consuming its outgoing buffer. Skips a leading HTTP handshake response and
+     * ignores non-text control frames.
+     *
+     * @return list<array<string,mixed>>
+     */
+    protected function drainServerMessages(\Nsd7\Surge\WebSocket\Connection $connection): array
+    {
+        $buffer = $connection->outgoingBuffer();
+        $connection->consumeOutgoing(strlen($buffer));
+
+        if (str_starts_with($buffer, 'HTTP/')) {
+            $end = strpos($buffer, "\r\n\r\n");
+            $buffer = $end === false ? '' : substr($buffer, $end + 4);
+        }
+
+        $messages = [];
+        $offset = 0;
+        $total = strlen($buffer);
+
+        while ($offset + 2 <= $total) {
+            $opcode = ord($buffer[$offset]) & 0x0F;
+            $len = ord($buffer[$offset + 1]) & 0x7F; // server frames are unmasked
+            $offset += 2;
+
+            if ($len === 126) {
+                $len = unpack('n', substr($buffer, $offset, 2))[1];
+                $offset += 2;
+            } elseif ($len === 127) {
+                $len = unpack('J', substr($buffer, $offset, 8))[1];
+                $offset += 8;
+            }
+
+            $payload = substr($buffer, $offset, $len);
+            $offset += $len;
+
+            if ($opcode === Opcode::TEXT) {
+                $decoded = json_decode($payload, true);
+                if (is_array($decoded)) {
+                    $messages[] = $decoded;
+                }
+            }
+        }
+
+        return $messages;
+    }
+
     private function export(mixed $value): string
     {
         return match (true) {
