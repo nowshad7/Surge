@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nsd7\Surge;
 
 use Nsd7\Surge\Contract\EventHandler;
+use Nsd7\Surge\Contract\HttpHandler;
 use Nsd7\Surge\Contract\Runtime;
 use Nsd7\Surge\Runtime\LiteRuntime;
 
@@ -22,8 +23,9 @@ final class Surge
         ?Runtime $runtime = null,
         /** @var null|callable(string):void */
         $logger = null,
+        ?HttpHandler $httpHandler = null,
     ) {
-        $this->runtime = $runtime ?? new LiteRuntime($handler, logger: $logger);
+        $this->runtime = $runtime ?? new LiteRuntime($handler, logger: $logger, httpHandler: $httpHandler);
     }
 
     public function run(string $host = '0.0.0.0', int $port = 9019): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nsd7\Surge\Runtime;
 
 use Nsd7\Surge\Contract\EventHandler;
+use Nsd7\Surge\Contract\HttpHandler;
 use Nsd7\Surge\Contract\Runtime;
 use Nsd7\Surge\WebSocket\Connection;
 
@@ -43,6 +44,7 @@ final class LiteRuntime implements Runtime
         private readonly int $maxConnections = 10000,
         /** @var null|callable(string):void */
         private $logger = null,
+        private readonly ?HttpHandler $httpHandler = null,
     ) {
     }
 
@@ -134,7 +136,10 @@ final class LiteRuntime implements Runtime
         stream_set_blocking($client, false);
         $id = (int) $client;
         $this->sockets[$id] = $client;
-        $this->connections[$id] = new Connection($this->nextConnectionId++);
+        $this->connections[$id] = new Connection(
+            $this->nextConnectionId++,
+            httpHandler: $this->httpHandler,
+        );
     }
 
     private function readFrom($socket): void
@@ -220,6 +225,12 @@ final class LiteRuntime implements Runtime
     private function disconnect($socket, int $code, string $reason): void
     {
         $id = (int) $socket;
+        // Idempotent: flush() and readFrom() can both decide to tear a
+        // connection down within one tick; only the first call does the work.
+        if (!isset($this->sockets[$id]) && !isset($this->connections[$id])) {
+            return;
+        }
+
         if (isset($this->connections[$id])) {
             $connection = $this->connections[$id];
             if ($connection->state() !== Connection::CLOSED) {
@@ -228,7 +239,9 @@ final class LiteRuntime implements Runtime
             $connection->markClosed();
         }
 
-        @fclose($socket);
+        if (is_resource($socket)) {
+            @fclose($socket);
+        }
         unset($this->sockets[$id], $this->connections[$id]);
     }
 

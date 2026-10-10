@@ -14,6 +14,9 @@ declare(strict_types=1);
  */
 
 use Nsd7\Surge\Handler\BroadcastHandler;
+use Nsd7\Surge\Http\PusherHttpApi;
+use Nsd7\Surge\Pusher\PusherProtocol;
+use Nsd7\Surge\Pusher\Signature;
 use Nsd7\Surge\Surge;
 
 (static function (array $argv): void {
@@ -44,15 +47,31 @@ use Nsd7\Surge\Surge;
         exit(64);
     }
 
-    $host = $options['host'] ?? '0.0.0.0';
-    $port = (int) ($options['port'] ?? 9019);
+    $env = static fn (string $key, ?string $default = null): ?string => getenv($key) !== false ? getenv($key) : $default;
+
+    $host = $options['host'] ?? $env('SURGE_HOST', '0.0.0.0');
+    $port = (int) ($options['port'] ?? $env('SURGE_PORT', '9019'));
+    $mode = $options['handler'] ?? $env('SURGE_HANDLER', 'pusher');
 
     $logger = static function (string $line): void {
         fwrite(STDOUT, '[' . date('Y-m-d H:i:s') . '] ' . $line . "\n");
     };
 
-    $handler = new BroadcastHandler();
-    $server = new Surge($handler, logger: $logger);
+    if ($mode === 'broadcast') {
+        $server = new Surge(new BroadcastHandler(), logger: $logger);
+        $logger("Starting Surge (broadcast relay) on ws://{$host}:{$port}");
+    } else {
+        $appId  = $options['app-id'] ?? $env('SURGE_APP_ID', 'surge');
+        $key    = $options['key']    ?? $env('SURGE_APP_KEY', 'surge-key');
+        $secret = $options['secret'] ?? $env('SURGE_APP_SECRET', 'surge-secret');
+
+        $signature = new Signature($key, $secret);
+        $protocol  = new PusherProtocol($signature);
+        $httpApi   = new PusherHttpApi($signature, $protocol, $appId);
+
+        $server = new Surge($protocol, logger: $logger, httpHandler: $httpApi);
+        $logger("Starting Surge (Pusher-compatible) app '{$appId}' on ws://{$host}:{$port}");
+    }
 
     if (function_exists('pcntl_signal')) {
         pcntl_async_signals(true);

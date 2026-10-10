@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Nsd7\Surge\WebSocket;
 
 use Nsd7\Surge\Contract\EventHandler;
+use Nsd7\Surge\Contract\HttpHandler;
+use Nsd7\Surge\Http\Request;
 use Nsd7\Surge\Protocol\Frame;
 use Nsd7\Surge\Protocol\FrameParser;
 use Nsd7\Surge\Protocol\Handshake;
@@ -42,6 +44,7 @@ final class Connection
     public function __construct(
         public readonly int $id,
         private readonly int $maxMessageBytes = 10 * 1024 * 1024,
+        private readonly ?HttpHandler $httpHandler = null,
     ) {
         $this->handshake = new Handshake();
         $this->parser = new FrameParser($this->maxMessageBytes);
@@ -111,14 +114,38 @@ final class Connection
         }
 
         if (!$this->handshake->isValidUpgrade()) {
-            $this->enqueue($this->handshake->rejection());
-            $this->state = self::CLOSING;
+            $this->serveHttp();
             return;
         }
 
         $this->enqueue($this->handshake->response());
         $this->state = self::OPEN;
         $handler->onOpen($this);
+    }
+
+    /**
+     * A completed request that is not a WebSocket upgrade is handled as plain
+     * HTTP (the Pusher trigger API, health checks). Without a handler, reject.
+     */
+    private function serveHttp(): void
+    {
+        if ($this->httpHandler === null) {
+            $this->enqueue($this->handshake->rejection());
+            $this->state = self::CLOSING;
+            return;
+        }
+
+        $request = new Request(
+            $this->handshake->method,
+            $this->handshake->path,
+            $this->handshake->query,
+            $this->handshake->headers,
+            $this->handshake->body,
+        );
+
+        $response = $this->httpHandler->handle($request);
+        $this->enqueue($response->toRaw());
+        $this->state = self::CLOSING;
     }
 
     private function handleFrame(Frame $frame, EventHandler $handler): void

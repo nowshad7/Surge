@@ -18,19 +18,32 @@ final class Handshake
 
     private string $buffer = '';
     private bool $complete = false;
+    private bool $headersParsed = false;
+    private int $contentLength = 0;
 
     /** @var array<string,string> lower-cased header name => value */
     public array $headers = [];
     public string $method = '';
     public string $path = '';
     public string $query = '';
+    public string $body = '';
+
+    public function __construct(private readonly int $maxBodyBytes = 10 * 1024 * 1024)
+    {
+    }
 
     /**
-     * Feed raw bytes. Returns true once the complete request-line + header block
-     * has been received and parsed.
+     * Feed raw bytes. Returns true once the request line, header block, and (for
+     * requests carrying a Content-Length) the full body have been received. A
+     * WebSocket upgrade has no body and completes as soon as the headers arrive.
      */
     public function feed(string $bytes): bool
     {
+        if ($this->headersParsed) {
+            $this->body .= $bytes;
+            return $this->finishIfBodyComplete();
+        }
+
         $this->buffer .= $bytes;
 
         $end = strpos($this->buffer, "\r\n\r\n");
@@ -42,8 +55,26 @@ final class Handshake
         }
 
         $this->parse(substr($this->buffer, 0, $end));
-        $this->complete = true;
+        $this->headersParsed = true;
+        $this->contentLength = max(0, (int) ($this->headers['content-length'] ?? 0));
 
+        if ($this->contentLength > $this->maxBodyBytes) {
+            throw new ProtocolException('Request body too large', 1009);
+        }
+
+        $this->body = substr($this->buffer, $end + 4);
+        $this->buffer = '';
+
+        return $this->finishIfBodyComplete();
+    }
+
+    private function finishIfBodyComplete(): bool
+    {
+        if (strlen($this->body) < $this->contentLength) {
+            return false;
+        }
+
+        $this->complete = true;
         return true;
     }
 
