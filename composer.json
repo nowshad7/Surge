@@ -1,14 +1,30 @@
 {
-    "name": "nsd7/realtime-queue",
-    "description": "PHP WebSocket broadcasting server without dependencies.",
+    "name": "nsd7/surge",
+    "description": "Surge — a lightweight, self-hosted, Pusher-compatible realtime broadcasting server for Laravel. No required dependencies.",
     "type": "library",
+    "keywords": ["websocket", "realtime", "broadcasting", "laravel", "pusher", "echo", "server"],
     "license": "MIT",
-    "autoload": {
-      "psr-4": {
-        "Nsd7\\RealtimeQueue\\": "src/"
-      }
+    "require": {
+        "php": ">=8.1",
+        "ext-json": "*",
+        "ext-sockets": "*"
     },
-    "require": {},
-    "bin": ["bin/server.php"]
-  }
-  
+    "suggest": {
+        "ext-redis": "Enables the Redis scaling adapter for running Surge across multiple nodes.",
+        "ext-openswoole": "Enables the high-performance multi-core Turbo runtime."
+    },
+    "autoload": {
+        "psr-4": {
+            "Nsd7\\Surge\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Nsd7\\Surge\\Tests\\": "tests/"
+        }
+    },
+    "bin": ["bin/surge"],
+    "scripts": {
+        "test": "php tests/run.php"
+    }
+}

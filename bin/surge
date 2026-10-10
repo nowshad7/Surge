@@ -1,0 +1,68 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/*
+ * Surge CLI.
+ *
+ * Usage:
+ *   surge serve [--host=0.0.0.0] [--port=9019] [--handler=broadcast]
+ *
+ * Loads Composer's autoloader when installed as a dependency, otherwise falls
+ * back to the bundled standalone autoloader so `php bin/surge` just works.
+ */
+
+use Nsd7\Surge\Handler\BroadcastHandler;
+use Nsd7\Surge\Surge;
+
+(static function (array $argv): void {
+    $autoloaders = [
+        __DIR__ . '/../vendor/autoload.php',   // installed as a dependency
+        __DIR__ . '/../../../autoload.php',     // inside someone's vendor/
+        __DIR__ . '/../autoload.php',           // running from a clone
+    ];
+    foreach ($autoloaders as $file) {
+        if (is_file($file)) {
+            require $file;
+            break;
+        }
+    }
+
+    $args = array_slice($argv, 1);
+    $command = $args[0] ?? 'serve';
+
+    $options = [];
+    foreach ($args as $arg) {
+        if (preg_match('/^--([a-z0-9\-]+)=(.*)$/', $arg, $m) === 1) {
+            $options[$m[1]] = $m[2];
+        }
+    }
+
+    if ($command !== 'serve') {
+        fwrite(STDERR, "Unknown command '{$command}'. Usage: surge serve [--host=] [--port=] [--handler=broadcast]\n");
+        exit(64);
+    }
+
+    $host = $options['host'] ?? '0.0.0.0';
+    $port = (int) ($options['port'] ?? 9019);
+
+    $logger = static function (string $line): void {
+        fwrite(STDOUT, '[' . date('Y-m-d H:i:s') . '] ' . $line . "\n");
+    };
+
+    $handler = new BroadcastHandler();
+    $server = new Surge($handler, logger: $logger);
+
+    if (function_exists('pcntl_signal')) {
+        pcntl_async_signals(true);
+        $stop = static function () use ($server, $logger): void {
+            $logger('Shutting down...');
+            $server->stop();
+        };
+        pcntl_signal(SIGINT, $stop);
+        pcntl_signal(SIGTERM, $stop);
+    }
+
+    $server->run($host, $port);
+})($argv);
