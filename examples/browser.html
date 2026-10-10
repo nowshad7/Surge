@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Surge demo</title>
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+    h1 { font-size: 1.4rem; }
+    #log { background: #0b0b0c; color: #d6e8ff; padding: 12px; border-radius: 8px; min-height: 160px; white-space: pre-wrap; }
+    .status { font-size: .85rem; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>⚡ Surge — live events</h1>
+  <p class="status" id="status">connecting…</p>
+  <div id="log"></div>
+
+  <script>
+    // Talks the Pusher protocol directly (no pusher-js needed for this demo).
+    const key = 'surge-key';
+    const ws = new WebSocket(`ws://127.0.0.1:9019/app/${key}`);
+    const log = (m) => { document.getElementById('log').textContent += m + '\n'; };
+    const status = (m) => { document.getElementById('status').textContent = m; };
+
+    ws.onopen = () => status('connected');
+    ws.onclose = () => status('disconnected');
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.event === 'pusher:connection_established') {
+        status('connected · subscribing to "demo"');
+        ws.send(JSON.stringify({ event: 'pusher:subscribe', data: { channel: 'demo' } }));
+      } else if (msg.event === 'pusher_internal:subscription_succeeded') {
+        log('subscribed to "demo" — run examples/publish.php to send events');
+      } else {
+        log(`${msg.event}: ${msg.data}`);
+      }
+    };
+  </script>
+</body>
+</html>
