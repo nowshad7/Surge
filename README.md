@@ -178,7 +178,8 @@ Surge is young. What's real today, and what isn't:
 
 **Honest caveats**
 - The pure-PHP *lite* runtime is single-process (one core). It is **light, not
-  the fastest** — see the roadmap for the planned multi-core *turbo* runtime.
+  the fastest.** A multi-core *turbo* runtime (OpenSwoole) is included but
+  **experimental and not yet load-tested** — see [docs/turbo.md](docs/turbo.md).
 - Cross-node **presence rosters** are per-node in the current scaling adapter;
   shared presence state is future work.
 - There is **no TLS termination** built in — run Surge behind a TLS-terminating
@@ -191,8 +192,10 @@ Surge is young. What's real today, and what isn't:
 - [x] Phase 2 — Pusher HTTP trigger API (same port)
 - [x] Phase 3 — Laravel package (`surge:serve`, config, Echo compatibility)
 - [x] Phase 4 — Redis pub/sub horizontal scaling
-- [ ] Phase 5 — Multi-core *turbo* runtime (OpenSwoole), shared presence state,
-      metrics endpoint, reproducible benchmarks vs Reverb
+- [x] Phase 5 — README, examples, CI, integration + benchmark harness
+- [~] Multi-core *turbo* runtime (OpenSwoole) — code shipped, **experimental**,
+      pending load-testing & benchmarks ([docs/turbo.md](docs/turbo.md))
+- [ ] Shared cross-node presence state
 - [ ] TLS, connection metrics, structured logging, Prometheus export
 
 ## License

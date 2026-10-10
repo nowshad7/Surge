@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Nsd7\Surge\Pusher;
 
+use Nsd7\Surge\Contract\Client;
 use Nsd7\Surge\Pusher\Channel\Channel;
 use Nsd7\Surge\Pusher\Channel\PresenceChannel;
 use Nsd7\Surge\Pusher\Channel\PrivateChannel;
-use Nsd7\Surge\WebSocket\Connection;
 
 /**
  * Owns the set of live channels for a single node and the reverse index of
@@ -39,26 +39,26 @@ final class ChannelManager
         return $this->channels[$name] ?? null;
     }
 
-    public function track(Connection $connection, string $channel): void
+    public function track(Client $connection, string $channel): void
     {
-        $this->connectionChannels[$connection->id][$channel] = true;
+        $this->connectionChannels[$connection->id()][$channel] = true;
     }
 
-    public function untrack(Connection $connection, string $channel): void
+    public function untrack(Client $connection, string $channel): void
     {
-        unset($this->connectionChannels[$connection->id][$channel]);
+        unset($this->connectionChannels[$connection->id()][$channel]);
         $this->pruneIfEmpty($channel);
     }
 
     /** @return list<string> channel names the connection was subscribed to */
-    public function channelsFor(Connection $connection): array
+    public function channelsFor(Client $connection): array
     {
-        return array_keys($this->connectionChannels[$connection->id] ?? []);
+        return array_keys($this->connectionChannels[$connection->id()] ?? []);
     }
 
-    public function forget(Connection $connection): void
+    public function forget(Client $connection): void
     {
-        unset($this->connectionChannels[$connection->id]);
+        unset($this->connectionChannels[$connection->id()]);
     }
 
     public function pruneIfEmpty(string $name): void

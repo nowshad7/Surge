@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nsd7\Surge\Pusher\Channel;
 
-use Nsd7\Surge\WebSocket\Connection;
+use Nsd7\Surge\Contract\Client;
 
 /**
  * A presence channel ("presence-" prefix): a private channel that also tracks
@@ -16,21 +16,21 @@ final class PresenceChannel extends PrivateChannel
     /** @var array<int, array{user_id: string, user_info: mixed}> connection id => member */
     private array $members = [];
 
-    public function join(Connection $connection, string $userId, mixed $userInfo): void
+    public function join(Client $connection, string $userId, mixed $userInfo): void
     {
         $this->subscribe($connection);
-        $this->members[$connection->id] = ['user_id' => $userId, 'user_info' => $userInfo];
+        $this->members[$connection->id()] = ['user_id' => $userId, 'user_info' => $userInfo];
     }
 
-    public function unsubscribe(Connection $connection): void
+    public function unsubscribe(Client $connection): void
     {
         parent::unsubscribe($connection);
-        unset($this->members[$connection->id]);
+        unset($this->members[$connection->id()]);
     }
 
-    public function member(Connection $connection): ?array
+    public function member(Client $connection): ?array
     {
-        return $this->members[$connection->id] ?? null;
+        return $this->members[$connection->id()] ?? null;
     }
 
     /** True if this user_id already has at least one other connection present. */

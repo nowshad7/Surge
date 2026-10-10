@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Nsd7\Surge\Handler;
 
+use Nsd7\Surge\Contract\Client;
 use Nsd7\Surge\Contract\EventHandler;
-use Nsd7\Surge\WebSocket\Connection;
 
 /**
  * A minimal fan-out handler: every message received from any client is relayed
@@ -18,7 +18,7 @@ use Nsd7\Surge\WebSocket\Connection;
  */
 final class BroadcastHandler implements EventHandler
 {
-    /** @var array<int, Connection> */
+    /** @var array<int, Client> */
     private array $clients = [];
 
     public function __construct(
@@ -26,27 +26,27 @@ final class BroadcastHandler implements EventHandler
     ) {
     }
 
-    public function onOpen(Connection $connection): void
+    public function onOpen(Client $connection): void
     {
-        $this->clients[$connection->id] = $connection;
+        $this->clients[$connection->id()] = $connection;
     }
 
-    public function onMessage(Connection $connection, string $message, bool $binary): void
+    public function onMessage(Client $connection, string $message, bool $binary): void
     {
         foreach ($this->clients as $id => $client) {
-            if (!$this->echoToSender && $id === $connection->id) {
+            if (!$this->echoToSender && $id === $connection->id()) {
                 continue;
             }
             $client->send($message);
         }
     }
 
-    public function onClose(Connection $connection, int $code, string $reason): void
+    public function onClose(Client $connection, int $code, string $reason): void
     {
-        unset($this->clients[$connection->id]);
+        unset($this->clients[$connection->id()]);
     }
 
-    public function onError(Connection $connection, \Throwable $error): void
+    public function onError(Client $connection, \Throwable $error): void
     {
         // Relay server tolerates per-connection errors; the connection is torn
         // down by the runtime after this returns.

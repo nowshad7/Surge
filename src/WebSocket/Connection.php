@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nsd7\Surge\WebSocket;
 
+use Nsd7\Surge\Contract\Client;
 use Nsd7\Surge\Contract\EventHandler;
 use Nsd7\Surge\Contract\HttpHandler;
 use Nsd7\Surge\Http\Request;
@@ -18,7 +19,7 @@ use Nsd7\Surge\Protocol\ProtocolException;
  * byte buffer. The runtime drives it (feeds inbound bytes, flushes the outgoing
  * buffer) but all protocol state lives here, so every runtime behaves the same.
  */
-final class Connection
+final class Connection implements Client
 {
     public const CONNECTING = 0;
     public const OPEN       = 1;
@@ -54,6 +55,21 @@ final class Connection
     public function state(): int
     {
         return $this->state;
+    }
+
+    public function id(): int
+    {
+        return $this->id;
+    }
+
+    public function getAttribute(string $key, mixed $default = null): mixed
+    {
+        return $this->attributes[$key] ?? $default;
+    }
+
+    public function setAttribute(string $key, mixed $value): void
+    {
+        $this->attributes[$key] = $value;
     }
 
     public function isOpen(): bool

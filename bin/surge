@@ -17,6 +17,7 @@ use Nsd7\Surge\Handler\BroadcastHandler;
 use Nsd7\Surge\Http\PusherHttpApi;
 use Nsd7\Surge\Pusher\PusherProtocol;
 use Nsd7\Surge\Pusher\Signature;
+use Nsd7\Surge\Runtime\SwooleRuntime;
 use Nsd7\Surge\Surge;
 
 (static function (array $argv): void {
@@ -69,8 +70,14 @@ use Nsd7\Surge\Surge;
         $protocol  = new PusherProtocol($signature);
         $httpApi   = new PusherHttpApi($signature, $protocol, $appId);
 
-        $server = new Surge($protocol, logger: $logger, httpHandler: $httpApi);
-        $logger("Starting Surge (Pusher-compatible) app '{$appId}' on ws://{$host}:{$port}");
+        // Runtime selection: lite (default, pure PHP) or turbo (OpenSwoole).
+        $runtimeName = $options['runtime'] ?? $env('SURGE_RUNTIME', 'lite');
+        $runtime = $runtimeName === 'turbo'
+            ? new SwooleRuntime($protocol, $httpApi, 0, $logger)
+            : null;
+
+        $server = new Surge($protocol, $runtime, $logger, $httpApi);
+        $logger("Starting Surge (Pusher-compatible, {$runtimeName} runtime) app '{$appId}' on ws://{$host}:{$port}");
     }
 
     if (function_exists('pcntl_signal')) {

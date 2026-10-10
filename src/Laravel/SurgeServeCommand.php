@@ -9,6 +9,7 @@ use Nsd7\Surge\Http\PusherHttpApi;
 use Nsd7\Surge\Pusher\ChannelManager;
 use Nsd7\Surge\Pusher\PusherProtocol;
 use Nsd7\Surge\Pusher\Signature;
+use Nsd7\Surge\Runtime\SwooleRuntime;
 use Nsd7\Surge\Scaling\LocalAdapter;
 use Nsd7\Surge\Scaling\RedisAdapter;
 use Nsd7\Surge\Surge;
@@ -20,7 +21,7 @@ use Nsd7\Surge\Surge;
  */
 final class SurgeServeCommand extends Command
 {
-    protected $signature = 'surge:serve {--host=} {--port=}';
+    protected $signature = 'surge:serve {--host=} {--port=} {--runtime=lite : lite (pure PHP) or turbo (OpenSwoole)}';
 
     protected $description = 'Start the Surge realtime broadcasting server';
 
@@ -54,9 +55,15 @@ final class SurgeServeCommand extends Command
         $httpApi = new PusherHttpApi($signature, $protocol, (string) $config['app']['id']);
 
         $logger = fn (string $line) => $this->line('<fg=gray>[' . date('H:i:s') . ']</> ' . $line);
-        $server = new Surge($protocol, logger: $logger, httpHandler: $httpApi);
 
-        $this->info("Surge listening on ws://{$host}:{$port} (app: {$config['app']['id']})");
+        $runtimeName = (string) ($this->option('runtime') ?: 'lite');
+        $runtime = $runtimeName === 'turbo'
+            ? new SwooleRuntime($protocol, $httpApi, 0, $logger)
+            : null;
+
+        $server = new Surge($protocol, $runtime, $logger, $httpApi);
+
+        $this->info("Surge listening on ws://{$host}:{$port} ({$runtimeName} runtime, app: {$config['app']['id']})");
 
         if (function_exists('pcntl_async_signals')) {
             pcntl_async_signals(true);

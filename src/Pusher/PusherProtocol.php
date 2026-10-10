@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nsd7\Surge\Pusher;
 
+use Nsd7\Surge\Contract\Client;
 use Nsd7\Surge\Contract\EventHandler;
 use Nsd7\Surge\Contract\ScalingAdapter;
 use Nsd7\Surge\Contract\Tickable;
@@ -11,7 +12,6 @@ use Nsd7\Surge\Pusher\Channel\Channel;
 use Nsd7\Surge\Pusher\Channel\PresenceChannel;
 use Nsd7\Surge\Scaling\LocalAdapter;
 use Nsd7\Surge\Scaling\RelayMessage;
-use Nsd7\Surge\WebSocket\Connection;
 
 /**
  * Implements the Pusher WebSocket protocol so Laravel Echo (and any Pusher
@@ -28,7 +28,7 @@ final class PusherProtocol implements EventHandler, Tickable
 {
     private const SOCKET_ID = 'socket_id';
 
-    /** @var array<string, Connection> socket_id => connection */
+    /** @var array<string, Client> socket_id => client */
     private array $socketIndex = [];
 
     private readonly ScalingAdapter $scaling;
@@ -48,16 +48,16 @@ final class PusherProtocol implements EventHandler, Tickable
         return $this->channels;
     }
 
-    public function onOpen(Connection $connection): void
+    public function onOpen(Client $connection): void
     {
         $socketId = $this->generateSocketId();
-        $connection->attributes[self::SOCKET_ID] = $socketId;
+        $connection->setAttribute(self::SOCKET_ID, $socketId);
         $this->socketIndex[$socketId] = $connection;
 
         $connection->send(Message::connectionEstablished($socketId, $this->activityTimeout));
     }
 
-    public function onMessage(Connection $connection, string $message, bool $binary): void
+    public function onMessage(Client $connection, string $message, bool $binary): void
     {
         $decoded = json_decode($message, true);
         if (!is_array($decoded) || !isset($decoded['event']) || !is_string($decoded['event'])) {
@@ -81,27 +81,27 @@ final class PusherProtocol implements EventHandler, Tickable
         };
     }
 
-    public function onClose(Connection $connection, int $code, string $reason): void
+    public function onClose(Client $connection, int $code, string $reason): void
     {
         foreach ($this->channels->channelsFor($connection) as $name) {
             $this->leave($connection, $name, notify: true);
         }
         $this->channels->forget($connection);
 
-        $socketId = $connection->attributes[self::SOCKET_ID] ?? null;
+        $socketId = $connection->getAttribute(self::SOCKET_ID);
         if (is_string($socketId)) {
             unset($this->socketIndex[$socketId]);
         }
     }
 
-    public function onError(Connection $connection, \Throwable $error): void
+    public function onError(Client $connection, \Throwable $error): void
     {
         // Protocol-level errors already closed the socket; nothing to add.
     }
 
     /* ---------------- Subscription handling ---------------- */
 
-    private function subscribe(Connection $connection, array $data): void
+    private function subscribe(Client $connection, array $data): void
     {
         $name = (string) ($data['channel'] ?? '');
         if ($name === '') {
@@ -109,7 +109,7 @@ final class PusherProtocol implements EventHandler, Tickable
             return;
         }
 
-        $socketId = (string) $connection->attributes[self::SOCKET_ID];
+        $socketId = (string) $connection->getAttribute(self::SOCKET_ID);
         $type = Channel::classify($name);
 
         if ($type !== 'public') {
@@ -138,7 +138,7 @@ final class PusherProtocol implements EventHandler, Tickable
         $this->channels->track($connection, $name);
     }
 
-    private function joinPresence(Connection $connection, PresenceChannel $channel, string $channelData): void
+    private function joinPresence(Client $connection, PresenceChannel $channel, string $channelData): void
     {
         $parsed = json_decode($channelData, true);
         $userId = isset($parsed['user_id']) ? (string) $parsed['user_id'] : '';
@@ -151,7 +151,7 @@ final class PusherProtocol implements EventHandler, Tickable
             return;
         }
 
-        $isNewMember = !$channel->hasOtherWithUserId($userId, $connection->id);
+        $isNewMember = !$channel->hasOtherWithUserId($userId, $connection->id());
 
         $channel->join($connection, $userId, $userInfo);
 
@@ -162,12 +162,12 @@ final class PusherProtocol implements EventHandler, Tickable
         if ($isNewMember) {
             $channel->broadcast(
                 Message::encode('pusher_internal:member_added', ['user_id' => $userId, 'user_info' => $userInfo], $channel->name),
-                exceptConnectionId: $connection->id,
+                exceptConnectionId: $connection->id(),
             );
         }
     }
 
-    private function unsubscribe(Connection $connection, string $name): void
+    private function unsubscribe(Client $connection, string $name): void
     {
         if ($name === '') {
             return;
@@ -175,7 +175,7 @@ final class PusherProtocol implements EventHandler, Tickable
         $this->leave($connection, $name, notify: true);
     }
 
-    private function leave(Connection $connection, string $name, bool $notify): void
+    private function leave(Client $connection, string $name, bool $notify): void
     {
         $channel = $this->channels->find($name);
         if ($channel === null) {
@@ -185,10 +185,10 @@ final class PusherProtocol implements EventHandler, Tickable
         if ($channel instanceof PresenceChannel) {
             $member = $channel->member($connection);
             $channel->unsubscribe($connection);
-            if ($notify && $member !== null && !$channel->hasOtherWithUserId($member['user_id'], $connection->id)) {
+            if ($notify && $member !== null && !$channel->hasOtherWithUserId($member['user_id'], $connection->id())) {
                 $channel->broadcast(
                     Message::encode('pusher_internal:member_removed', ['user_id' => $member['user_id']], $name),
-                    exceptConnectionId: $connection->id,
+                    exceptConnectionId: $connection->id(),
                 );
             }
         } else {
@@ -200,7 +200,7 @@ final class PusherProtocol implements EventHandler, Tickable
 
     /* ---------------- Client events (whispers) ---------------- */
 
-    private function handleClientEvent(Connection $connection, string $event, array $decoded): void
+    private function handleClientEvent(Client $connection, string $event, array $decoded): void
     {
         if (!$this->clientEventsEnabled) {
             $connection->send(Message::error('Client events are disabled'));
@@ -220,7 +220,7 @@ final class PusherProtocol implements EventHandler, Tickable
 
         $channel->broadcast(
             Message::encode($event, $data, $name),
-            exceptConnectionId: $connection->id,
+            exceptConnectionId: $connection->id(),
         );
 
         // Relay to peer nodes so their subscribers see the client event too.
@@ -229,7 +229,7 @@ final class PusherProtocol implements EventHandler, Tickable
             $name,
             $event,
             $data,
-            (string) $connection->attributes[self::SOCKET_ID],
+            (string) $connection->getAttribute(self::SOCKET_ID),
         ));
     }
 
@@ -262,7 +262,7 @@ final class PusherProtocol implements EventHandler, Tickable
 
         $exceptConnectionId = null;
         if ($exceptSocketId !== null && isset($this->socketIndex[$exceptSocketId])) {
-            $exceptConnectionId = $this->socketIndex[$exceptSocketId]->id;
+            $exceptConnectionId = $this->socketIndex[$exceptSocketId]->id();
         }
 
         return $target->broadcast(Message::encode($event, $data, $channel), $exceptConnectionId);

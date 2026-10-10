@@ -4,39 +4,39 @@ declare(strict_types=1);
 
 namespace Nsd7\Surge\Tests\Support;
 
+use Nsd7\Surge\Contract\Client;
 use Nsd7\Surge\Contract\EventHandler;
-use Nsd7\Surge\WebSocket\Connection;
 
 /**
  * Test double that records every lifecycle callback it receives.
  */
 final class RecordingHandler implements EventHandler
 {
-    /** @var list<Connection> */
+    /** @var list<Client> */
     public array $opened = [];
-    /** @var list<array{Connection, string, bool}> */
+    /** @var list<array{Client, string, bool}> */
     public array $messages = [];
-    /** @var list<array{Connection, int, string}> */
+    /** @var list<array{Client, int, string}> */
     public array $closed = [];
-    /** @var list<array{Connection, \Throwable}> */
+    /** @var list<array{Client, \Throwable}> */
     public array $errors = [];
 
-    public function onOpen(Connection $connection): void
+    public function onOpen(Client $connection): void
     {
         $this->opened[] = $connection;
     }
 
-    public function onMessage(Connection $connection, string $message, bool $binary): void
+    public function onMessage(Client $connection, string $message, bool $binary): void
     {
         $this->messages[] = [$connection, $message, $binary];
     }
 
-    public function onClose(Connection $connection, int $code, string $reason): void
+    public function onClose(Client $connection, int $code, string $reason): void
     {
         $this->closed[] = [$connection, $code, $reason];
     }
 
-    public function onError(Connection $connection, \Throwable $error): void
+    public function onError(Client $connection, \Throwable $error): void
     {
         $this->errors[] = [$connection, $error];
     }

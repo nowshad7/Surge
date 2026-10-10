@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Nsd7\Surge\Pusher\Channel;
 
-use Nsd7\Surge\WebSocket\Connection;
+use Nsd7\Surge\Contract\Client;
 
 /**
  * A public channel: a named set of subscribed connections. Private and presence
@@ -12,26 +12,26 @@ use Nsd7\Surge\WebSocket\Connection;
  */
 class Channel
 {
-    /** @var array<int, Connection> connection id => connection */
+    /** @var array<int, Client> connection id => client */
     protected array $subscribers = [];
 
     public function __construct(public readonly string $name)
     {
     }
 
-    public function subscribe(Connection $connection): void
+    public function subscribe(Client $connection): void
     {
-        $this->subscribers[$connection->id] = $connection;
+        $this->subscribers[$connection->id()] = $connection;
     }
 
-    public function unsubscribe(Connection $connection): void
+    public function unsubscribe(Client $connection): void
     {
-        unset($this->subscribers[$connection->id]);
+        unset($this->subscribers[$connection->id()]);
     }
 
-    public function has(Connection $connection): bool
+    public function has(Client $connection): bool
     {
-        return isset($this->subscribers[$connection->id]);
+        return isset($this->subscribers[$connection->id()]);
     }
 
     public function isEmpty(): bool
