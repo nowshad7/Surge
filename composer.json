@@ -11,7 +11,15 @@
     },
     "suggest": {
         "ext-redis": "Enables the Redis scaling adapter for running Surge across multiple nodes.",
-        "ext-openswoole": "Enables the high-performance multi-core Turbo runtime."
+        "ext-openswoole": "Enables the high-performance multi-core Turbo runtime.",
+        "illuminate/support": "Required only to use the Laravel integration (service provider and surge:serve command)."
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Nsd7\\Surge\\Laravel\\SurgeServiceProvider"
+            ]
+        }
     },
     "autoload": {
         "psr-4": {

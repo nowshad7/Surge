@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace Nsd7\Surge\Pusher;
 
 use Nsd7\Surge\Contract\EventHandler;
+use Nsd7\Surge\Contract\ScalingAdapter;
+use Nsd7\Surge\Contract\Tickable;
 use Nsd7\Surge\Pusher\Channel\Channel;
 use Nsd7\Surge\Pusher\Channel\PresenceChannel;
+use Nsd7\Surge\Scaling\LocalAdapter;
+use Nsd7\Surge\Scaling\RelayMessage;
 use Nsd7\Surge\WebSocket\Connection;
 
 /**
@@ -20,19 +24,23 @@ use Nsd7\Surge\WebSocket\Connection;
  *
  * @implements EventHandler
  */
-final class PusherProtocol implements EventHandler
+final class PusherProtocol implements EventHandler, Tickable
 {
     private const SOCKET_ID = 'socket_id';
 
     /** @var array<string, Connection> socket_id => connection */
     private array $socketIndex = [];
 
+    private readonly ScalingAdapter $scaling;
+
     public function __construct(
         private readonly Signature $signature,
         private readonly ChannelManager $channels = new ChannelManager(),
         private readonly int $activityTimeout = 120,
         private readonly bool $clientEventsEnabled = true,
+        ?ScalingAdapter $scaling = null,
     ) {
+        $this->scaling = $scaling ?? new LocalAdapter();
     }
 
     public function channels(): ChannelManager
@@ -208,19 +216,44 @@ final class PusherProtocol implements EventHandler
             return;
         }
 
+        $data = $decoded['data'] ?? null;
+
         $channel->broadcast(
-            Message::encode($event, $decoded['data'] ?? null, $name),
+            Message::encode($event, $data, $name),
             exceptConnectionId: $connection->id,
         );
+
+        // Relay to peer nodes so their subscribers see the client event too.
+        $this->scaling->publishToPeers(new RelayMessage(
+            $this->scaling->nodeId(),
+            $name,
+            $event,
+            $data,
+            (string) $connection->attributes[self::SOCKET_ID],
+        ));
     }
 
     /* ---------------- Server-side publish (HTTP API / scaling) ---------------- */
 
     /**
-     * Deliver an application event to a channel's subscribers. Returns the
-     * number of clients the event was sent to.
+     * Deliver an application event to a channel's subscribers and relay it to
+     * peer nodes. Returns the number of local clients the event was sent to.
      */
     public function publish(string $channel, string $event, mixed $data, ?string $exceptSocketId = null): int
+    {
+        $this->scaling->publishToPeers(new RelayMessage(
+            $this->scaling->nodeId(),
+            $channel,
+            $event,
+            $data,
+            $exceptSocketId,
+        ));
+
+        return $this->publishLocal($channel, $event, $data, $exceptSocketId);
+    }
+
+    /** Fan an event out to local subscribers only (no peer relay). */
+    public function publishLocal(string $channel, string $event, mixed $data, ?string $exceptSocketId = null): int
     {
         $target = $this->channels->find($channel);
         if ($target === null) {
@@ -233,6 +266,14 @@ final class PusherProtocol implements EventHandler
         }
 
         return $target->broadcast(Message::encode($event, $data, $channel), $exceptConnectionId);
+    }
+
+    /** Called each loop tick: replay events published on other nodes. */
+    public function tick(): void
+    {
+        $this->scaling->consume(function (RelayMessage $message): void {
+            $this->publishLocal($message->channel, $message->event, $message->data, $message->exceptSocketId);
+        });
     }
 
     private function generateSocketId(): string

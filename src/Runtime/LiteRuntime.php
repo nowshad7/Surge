@@ -7,6 +7,7 @@ namespace Nsd7\Surge\Runtime;
 use Nsd7\Surge\Contract\EventHandler;
 use Nsd7\Surge\Contract\HttpHandler;
 use Nsd7\Surge\Contract\Runtime;
+use Nsd7\Surge\Contract\Tickable;
 use Nsd7\Surge\WebSocket\Connection;
 
 /**
@@ -117,7 +118,24 @@ final class LiteRuntime implements Runtime
             }
         }
 
+        // Let a scaling-aware handler drain inbound peer messages, then flush
+        // any sends those produced.
+        if ($this->handler instanceof Tickable) {
+            $this->handler->tick();
+            $this->flushPending();
+        }
+
         $this->heartbeat();
+    }
+
+    /** Flush every connection that has buffered output (e.g. after a peer relay). */
+    private function flushPending(): void
+    {
+        foreach ($this->sockets as $id => $socket) {
+            if ($this->connections[$id]->hasPendingWrite()) {
+                $this->flush($socket);
+            }
+        }
     }
 
     private function accept(): void
