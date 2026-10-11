@@ -149,9 +149,19 @@ final class PusherProtocol implements EventHandler, Tickable
             }
         }
 
+        $existed = $this->channels->find($name) !== null;
         $channel = $this->channels->findOrCreate($name);
 
         if ($channel instanceof PresenceChannel) {
+            // First local subscriber on this presence channel: ask peers to
+            // re-announce their members so our roster converges.
+            if (!$existed) {
+                $this->scaling->publishToPeers(RelayMessage::presence(
+                    $this->scaling->nodeId(),
+                    RelayMessage::PRESENCE_SYNC,
+                    $name,
+                ));
+            }
             $this->joinPresence($connection, $channel, (string) ($data['channel_data'] ?? ''));
         } else {
             $channel->subscribe($connection);
@@ -175,19 +185,30 @@ final class PusherProtocol implements EventHandler, Tickable
             return;
         }
 
-        $isNewMember = !$channel->hasOtherWithUserId($userId, $connection->id());
+        $isNewCombined = !$channel->hasUserId($userId);   // new across local + known remote
+        $firstLocal = !$channel->hasLocalUserId($userId); // first connection for this user on this node
 
         $channel->join($connection, $userId, $userInfo);
 
-        // The subscriber sees the full roster (including itself)...
+        // The subscriber sees the full roster (local + known remote members).
         $connection->send(Message::encode('pusher_internal:subscription_succeeded', $channel->presenceData(), $channel->name));
 
-        // ...everyone else is told a member arrived, but only once per user_id.
-        if ($isNewMember) {
+        // Local subscribers hear a member arrived, but only once per user_id.
+        if ($isNewCombined) {
             $channel->broadcast(
                 Message::encode('pusher_internal:member_added', ['user_id' => $userId, 'user_info' => $userInfo], $channel->name),
                 exceptConnectionId: $connection->id(),
             );
+        }
+
+        // Peers are told this node now hosts the user (first local occurrence only).
+        if ($firstLocal) {
+            $this->scaling->publishToPeers(RelayMessage::presence(
+                $this->scaling->nodeId(),
+                RelayMessage::PRESENCE_ADD,
+                $channel->name,
+                ['user_id' => $userId, 'user_info' => $userInfo],
+            ));
         }
     }
 
@@ -209,11 +230,27 @@ final class PusherProtocol implements EventHandler, Tickable
         if ($channel instanceof PresenceChannel) {
             $member = $channel->member($connection);
             $channel->unsubscribe($connection);
-            if ($notify && $member !== null && !$channel->hasOtherWithUserId($member['user_id'], $connection->id())) {
-                $channel->broadcast(
-                    Message::encode('pusher_internal:member_removed', ['user_id' => $member['user_id']], $name),
-                    exceptConnectionId: $connection->id(),
-                );
+            if ($member !== null) {
+                $userId = $member['user_id'];
+
+                // If this node no longer hosts the user, tell peers to drop it.
+                if (!$channel->hasLocalUserId($userId)) {
+                    $this->scaling->publishToPeers(RelayMessage::presence(
+                        $this->scaling->nodeId(),
+                        RelayMessage::PRESENCE_REMOVE,
+                        $name,
+                        ['user_id' => $userId],
+                    ));
+                }
+
+                // Local subscribers hear a member left only when fully gone
+                // (no local and no remote connection holds the user_id).
+                if ($notify && !$channel->hasUserId($userId)) {
+                    $channel->broadcast(
+                        Message::encode('pusher_internal:member_removed', ['user_id' => $userId], $name),
+                        exceptConnectionId: $connection->id(),
+                    );
+                }
             }
         } else {
             $channel->unsubscribe($connection);
@@ -298,12 +335,81 @@ final class PusherProtocol implements EventHandler, Tickable
         return $sent;
     }
 
-    /** Called each loop tick: replay events published on other nodes. */
+    /** Called each loop tick: apply messages relayed from other nodes. */
     public function tick(): void
     {
         $this->scaling->consume(function (RelayMessage $message): void {
-            $this->publishLocal($message->channel, $message->event, $message->data, $message->exceptSocketId);
+            match ($message->kind) {
+                RelayMessage::PRESENCE_ADD    => $this->onRemotePresenceAdd($message),
+                RelayMessage::PRESENCE_REMOVE => $this->onRemotePresenceRemove($message),
+                RelayMessage::PRESENCE_SYNC   => $this->onPresenceSync($message),
+                default                        => $this->publishLocal(
+                    $message->channel,
+                    (string) $message->event,
+                    $message->data,
+                    $message->exceptSocketId,
+                ),
+            };
         });
+    }
+
+    private function onRemotePresenceAdd(RelayMessage $message): void
+    {
+        $channel = $this->channels->find($message->channel);
+        if (!$channel instanceof PresenceChannel || !is_array($message->data)) {
+            return;
+        }
+        $userId = (string) ($message->data['user_id'] ?? '');
+        if ($userId === '') {
+            return;
+        }
+        $userInfo = $message->data['user_info'] ?? null;
+
+        $wasPresent = $channel->hasUserId($userId);
+        $channel->addRemote($message->origin . '|' . $userId, $userId, $userInfo);
+
+        if (!$wasPresent) {
+            $channel->broadcast(
+                Message::encode('pusher_internal:member_added', ['user_id' => $userId, 'user_info' => $userInfo], $message->channel),
+            );
+        }
+    }
+
+    private function onRemotePresenceRemove(RelayMessage $message): void
+    {
+        $channel = $this->channels->find($message->channel);
+        if (!$channel instanceof PresenceChannel || !is_array($message->data)) {
+            return;
+        }
+        $userId = (string) ($message->data['user_id'] ?? '');
+        if ($userId === '') {
+            return;
+        }
+
+        $channel->removeRemote($message->origin . '|' . $userId);
+
+        if (!$channel->hasUserId($userId)) {
+            $channel->broadcast(
+                Message::encode('pusher_internal:member_removed', ['user_id' => $userId], $message->channel),
+            );
+        }
+    }
+
+    /** A peer asked for our roster: re-announce our local members. */
+    private function onPresenceSync(RelayMessage $message): void
+    {
+        $channel = $this->channels->find($message->channel);
+        if (!$channel instanceof PresenceChannel) {
+            return;
+        }
+        foreach ($channel->localRoster() as $userId => $userInfo) {
+            $this->scaling->publishToPeers(RelayMessage::presence(
+                $this->scaling->nodeId(),
+                RelayMessage::PRESENCE_ADD,
+                $message->channel,
+                ['user_id' => (string) $userId, 'user_info' => $userInfo],
+            ));
+        }
     }
 
     private function generateSocketId(): string

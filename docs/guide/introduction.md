@@ -57,8 +57,9 @@ Surge is young. Here is the current, honest status:
 - The pure-PHP *lite* runtime is single-process (one core). It is **light, not
   the fastest**. The multi-core [*turbo* runtime](/guide/runtimes#turbo) is
   included but experimental.
-- Cross-node **presence rosters** are per-node in the current
-  [scaling adapter](/guide/scaling).
+- Cross-node **presence** is **eventually consistent** — joins/leaves propagate
+  and rosters converge over one relay round-trip. See
+  [scaling](/guide/scaling#presence-across-nodes).
 - There is **no TLS termination** built in — run Surge behind a TLS-terminating
   proxy. See [Deployment](/guide/deployment).
 

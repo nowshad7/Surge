@@ -70,10 +70,11 @@ Surge sends:
   user with two tabs doesn't appear twice.
 - `pusher_internal:member_removed` when a user's **last** connection leaves.
 
-::: warning Cross-node presence
-In the current [Redis scaling](/guide/scaling) adapter, presence rosters are
-tracked **per node**. A multi-node deployment reflects the local node's members.
-Shared cross-node presence is on the roadmap.
+::: tip Cross-node presence
+With [Redis scaling](/guide/scaling) enabled, presence works across nodes:
+joins/leaves propagate to subscribers on every node and rosters include members
+from the whole cluster. It's **eventually consistent** — see
+[Presence across nodes](/guide/scaling#presence-across-nodes).
 :::
 
 Next: [Client events](/guide/client-events).

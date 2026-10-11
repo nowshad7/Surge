@@ -22,7 +22,6 @@ this page says otherwise:
 - Treat "scales across cores / faster than a single event loop" as the **design
   goal**, not a measured result.
 - Use the **lite** runtime for anything you depend on.
-- Cross-node presence rosters remain per-node (same limitation as lite + Redis).
 
 ## Running it
 
