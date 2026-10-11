@@ -12,6 +12,7 @@ use Nsd7\Surge\Pusher\Channel\Channel;
 use Nsd7\Surge\Pusher\Channel\PresenceChannel;
 use Nsd7\Surge\Scaling\LocalAdapter;
 use Nsd7\Surge\Scaling\RelayMessage;
+use Nsd7\Surge\Support\Metrics;
 
 /**
  * Implements the Pusher WebSocket protocol so Laravel Echo (and any Pusher
@@ -32,6 +33,7 @@ final class PusherProtocol implements EventHandler, Tickable
     private array $socketIndex = [];
 
     private readonly ScalingAdapter $scaling;
+    private readonly Metrics $metrics;
 
     public function __construct(
         private readonly Signature $signature,
@@ -39,13 +41,27 @@ final class PusherProtocol implements EventHandler, Tickable
         private readonly int $activityTimeout = 120,
         private readonly bool $clientEventsEnabled = true,
         ?ScalingAdapter $scaling = null,
+        ?Metrics $metrics = null,
     ) {
         $this->scaling = $scaling ?? new LocalAdapter();
+        $this->metrics = $metrics ?? new Metrics();
     }
 
     public function channels(): ChannelManager
     {
         return $this->channels;
+    }
+
+    public function metrics(): Metrics
+    {
+        return $this->metrics;
+    }
+
+    /** Refresh the live gauges (current connections and channels). */
+    private function syncGauges(): void
+    {
+        $this->metrics->setGauge('surge_connections_current', count($this->socketIndex));
+        $this->metrics->setGauge('surge_channels_current', $this->channels->totalChannels());
     }
 
     public function onOpen(Client $connection): void
@@ -54,11 +70,16 @@ final class PusherProtocol implements EventHandler, Tickable
         $connection->setAttribute(self::SOCKET_ID, $socketId);
         $this->socketIndex[$socketId] = $connection;
 
+        $this->metrics->increment('surge_connections_total');
+        $this->syncGauges();
+
         $connection->send(Message::connectionEstablished($socketId, $this->activityTimeout));
     }
 
     public function onMessage(Client $connection, string $message, bool $binary): void
     {
+        $this->metrics->increment('surge_messages_received_total');
+
         $decoded = json_decode($message, true);
         if (!is_array($decoded) || !isset($decoded['event']) || !is_string($decoded['event'])) {
             $connection->send(Message::error('Invalid message format'));
@@ -92,6 +113,8 @@ final class PusherProtocol implements EventHandler, Tickable
         if (is_string($socketId)) {
             unset($this->socketIndex[$socketId]);
         }
+
+        $this->syncGauges();
     }
 
     public function onError(Client $connection, \Throwable $error): void
@@ -136,6 +159,7 @@ final class PusherProtocol implements EventHandler, Tickable
         }
 
         $this->channels->track($connection, $name);
+        $this->syncGauges();
     }
 
     private function joinPresence(Client $connection, PresenceChannel $channel, string $channelData): void
@@ -196,6 +220,7 @@ final class PusherProtocol implements EventHandler, Tickable
         }
 
         $this->channels->untrack($connection, $name);
+        $this->syncGauges();
     }
 
     /* ---------------- Client events (whispers) ---------------- */
@@ -241,6 +266,8 @@ final class PusherProtocol implements EventHandler, Tickable
      */
     public function publish(string $channel, string $event, mixed $data, ?string $exceptSocketId = null): int
     {
+        $this->metrics->increment('surge_events_published_total');
+
         $this->scaling->publishToPeers(new RelayMessage(
             $this->scaling->nodeId(),
             $channel,
@@ -265,7 +292,10 @@ final class PusherProtocol implements EventHandler, Tickable
             $exceptConnectionId = $this->socketIndex[$exceptSocketId]->id();
         }
 
-        return $target->broadcast(Message::encode($event, $data, $channel), $exceptConnectionId);
+        $sent = $target->broadcast(Message::encode($event, $data, $channel), $exceptConnectionId);
+        $this->metrics->increment('surge_messages_sent_total', $sent);
+
+        return $sent;
     }
 
     /** Called each loop tick: replay events published on other nodes. */
