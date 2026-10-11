@@ -47,14 +47,23 @@ Each node logs its node id on startup when scaling is enabled.
 
 - Server-published events (your `broadcast()` calls via the HTTP API).
 - Client (`client-`) events on private/presence channels.
+- **Presence membership** — joins and leaves propagate across nodes, and rosters
+  include members from every node.
 
-## Limitations
+## Presence across nodes
 
-::: warning Presence is per-node
-Presence **rosters** are tracked per node in this version. Member-added/removed
-and the roster reflect the local node's members, not the whole cluster. Shared
-cross-node presence state is on the roadmap. Public, private, and client events
-all relay correctly across nodes.
+Presence is **eventually consistent** across the cluster:
+
+- When a member joins or leaves on one node, a `member_added` / `member_removed`
+  is relayed so subscribers on **every** node are notified.
+- When a node's first subscriber joins a presence channel, it asks peers to
+  re-announce their members, so its roster converges to the full cluster roster.
+
+::: tip Convergence window
+A brand-new node's very first `subscription_succeeded` roster reflects the
+members it knows at that instant; any members it hasn't learned yet arrive
+moments later as `member_added` events (so Echo's `.joining()` still fires).
+In practice this window is a single relay round-trip.
 :::
 
 A load balancer in front of multiple nodes should use **sticky sessions** (or

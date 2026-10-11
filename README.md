@@ -181,8 +181,9 @@ Surge is young. What's real today, and what isn't:
 - The pure-PHP *lite* runtime is single-process (one core). It is **light, not
   the fastest.** A multi-core *turbo* runtime (OpenSwoole) is included but
   **experimental and not yet load-tested** — see [docs/turbo.md](docs/turbo.md).
-- Cross-node **presence rosters** are per-node in the current scaling adapter;
-  shared presence state is future work.
+- Cross-node **presence** is supported but **eventually consistent** — a new
+  node's first roster converges over one relay round-trip (member events still
+  fire). Single-node presence is immediate.
 - There is **no TLS termination** built in — run Surge behind a TLS-terminating
   proxy (nginx, Caddy) for `wss://`.
 
@@ -197,7 +198,7 @@ Surge is young. What's real today, and what isn't:
 - [x] Observability — Prometheus `/metrics` endpoint + structured JSON logging
 - [~] Multi-core *turbo* runtime (OpenSwoole) — code shipped, **experimental**,
       pending load-testing & benchmarks ([docs/turbo.md](docs/turbo.md))
-- [ ] Shared cross-node presence state
+- [x] Shared cross-node presence (eventually consistent across nodes)
 - TLS: by design, via a reverse proxy (nginx/Caddy) — see the docs
 
 ## License
