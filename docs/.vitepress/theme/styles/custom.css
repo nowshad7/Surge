@@ -1,0 +1,326 @@
+/* =========================================================================
+   Surge docs — custom theme
+   A deliberate, non-generic look: Space Grotesk display type, an electric
+   violet→cyan brand, soft ambient glows, and lifted glass-like cards.
+   ========================================================================= */
+
+:root {
+  --vp-font-family-base: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Electric brand ramp */
+  --surge-violet: #7c6cff;
+  --surge-indigo: #6d5efc;
+  --surge-cyan: #22d3ee;
+
+  --vp-c-brand-1: #6a5bff;
+  --vp-c-brand-2: #7c6cff;
+  --vp-c-brand-3: #8b7dff;
+  --vp-c-brand-soft: rgba(124, 108, 255, 0.14);
+
+  --vp-c-brand-next: var(--vp-c-brand-1);
+
+  /* Rounded, modern surfaces */
+  --surge-radius: 16px;
+
+  /* Buttons */
+  --vp-button-brand-bg: var(--surge-indigo);
+  --vp-button-brand-hover-bg: #5b4bf5;
+  --vp-button-brand-active-bg: #5241e8;
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-hover-border: transparent;
+
+  /* Hero gradient name */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #7c6cff 10%, #22d3ee 90%);
+  --vp-home-hero-image-background-image: linear-gradient(145deg, rgba(124, 108, 255, 0.5), rgba(34, 211, 238, 0.4));
+  --vp-home-hero-image-filter: blur(68px);
+}
+
+.dark {
+  --vp-c-bg: #0b0b12;
+  --vp-c-bg-alt: #0e0e17;
+  --vp-c-bg-soft: #14141f;
+  --vp-c-brand-1: #8b7dff;
+  --vp-c-brand-2: #9a8dff;
+  --vp-c-brand-3: #a79bff;
+  --vp-c-brand-soft: rgba(124, 108, 255, 0.18);
+}
+
+/* ---- Typography ---------------------------------------------------------- */
+
+body {
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4,
+.VPHero .name,
+.VPHero .text,
+.VPFeature .title,
+.vp-doc h1, .vp-doc h2, .vp-doc h3 {
+  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  letter-spacing: -0.02em;
+}
+
+.vp-doc h1 { font-size: 2.3rem; }
+.vp-doc h2 {
+  margin-top: 3rem;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--vp-c-divider);
+}
+
+/* ---- Ambient background glow (dark) ------------------------------------- */
+
+.dark body {
+  background:
+    radial-gradient(900px 500px at 12% -8%, rgba(124, 108, 255, 0.16), transparent 60%),
+    radial-gradient(800px 500px at 100% 0%, rgba(34, 211, 238, 0.10), transparent 55%),
+    var(--vp-c-bg);
+  background-attachment: fixed;
+}
+
+/* ---- Hero ---------------------------------------------------------------- */
+
+.VPHero .name {
+  background: var(--vp-home-hero-name-background);
+  -webkit-background-clip: text;
+  background-clip: text;
+  background-size: 200% auto;
+  animation: surge-shimmer 6s ease-in-out infinite;
+  font-weight: 700;
+  filter: drop-shadow(0 6px 30px rgba(124, 108, 255, 0.35));
+}
+
+@keyframes surge-shimmer {
+  0%, 100% { background-position: 0% center; }
+  50% { background-position: 100% center; }
+}
+
+.VPHero .text { font-weight: 600; }
+.VPHero .tagline {
+  font-size: 1.12rem;
+  line-height: 1.6;
+  opacity: 0.85;
+  max-width: 34rem;
+}
+
+/* Brand CTA with a soft glow + lift */
+.VPButton.brand {
+  background: linear-gradient(120deg, #6d5efc, #7c6cff);
+  box-shadow: 0 10px 30px -10px rgba(109, 94, 252, 0.7);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+.VPButton.brand:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+  box-shadow: 0 16px 40px -12px rgba(109, 94, 252, 0.85);
+}
+.VPButton.alt {
+  border-radius: 12px;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+.VPButton.alt:hover { transform: translateY(-2px); }
+
+/* ---- Feature cards ------------------------------------------------------- */
+
+.VPFeature {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: var(--surge-radius);
+  background: var(--vp-c-bg-soft);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.VPFeature::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(130deg, rgba(124, 108, 255, 0.6), rgba(34, 211, 238, 0.45));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.VPFeature:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 50px -24px rgba(124, 108, 255, 0.55);
+}
+.VPFeature:hover::after { opacity: 1; }
+.VPFeature .icon {
+  background: linear-gradient(135deg, rgba(124, 108, 255, 0.18), rgba(34, 211, 238, 0.14)) !important;
+  border-radius: 12px !important;
+  font-size: 22px !important;
+}
+.VPFeature .title {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* ---- Nav / sidebar ------------------------------------------------------- */
+
+.VPNavBar.has-sidebar .content-body,
+.VPNavBar { backdrop-filter: saturate(1.2) blur(8px); }
+
+.VPSidebarItem.level-0 > .item > .text { font-weight: 600; }
+.VPSidebarItem.is-active > .item .link .text {
+  color: var(--vp-c-brand-1);
+  font-weight: 600;
+}
+
+/* ---- Code --------------------------------------------------------------- */
+
+.vp-doc div[class*='language-'] {
+  border-radius: 14px;
+  border: 1px solid var(--vp-c-divider);
+}
+.vp-doc code { font-feature-settings: normal; }
+.vp-doc :not(pre) > code {
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+  border-radius: 6px;
+}
+
+/* ---- Custom blocks ------------------------------------------------------- */
+
+.vp-doc .custom-block {
+  border-radius: 14px;
+  border-width: 1px;
+}
+.vp-doc table {
+  border-radius: 12px;
+  overflow: hidden;
+  display: table;
+  width: 100%;
+}
+.vp-doc tr:nth-child(2n) { background: var(--vp-c-bg-soft); }
+
+/* =========================================================================
+   Home-page custom sections (used by index.md raw HTML)
+   ========================================================================= */
+
+.surge-section {
+  max-width: 1152px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.surge-section + .surge-section { margin-top: 12px; }
+
+.surge-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--vp-c-brand-1);
+  margin-bottom: 6px;
+}
+.surge-h {
+  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+.surge-sub { opacity: 0.8; margin: 0 0 28px; max-width: 46rem; }
+
+/* Comparison */
+.surge-compare {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: var(--surge-radius);
+  overflow: hidden;
+  font-size: 0.94rem;
+}
+.surge-compare th, .surge-compare td {
+  padding: 14px 18px;
+  text-align: left;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+.surge-compare thead th {
+  background: var(--vp-c-bg-soft);
+  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-weight: 600;
+}
+.surge-compare th.surge-col-surge {
+  color: var(--vp-c-brand-1);
+}
+.surge-compare tbody tr:last-child td { border-bottom: 0; }
+.surge-yes { color: #1fb77a; font-weight: 600; }
+.surge-no { opacity: 0.5; }
+
+/* Steps */
+.surge-steps {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.surge-step {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: var(--surge-radius);
+  background: var(--vp-c-bg-soft);
+  padding: 22px;
+}
+.surge-step .n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #6d5efc, #22d3ee);
+  margin-bottom: 12px;
+}
+.surge-step h4 { margin: 0 0 6px; font-size: 1.02rem; }
+.surge-step p { margin: 0; font-size: 0.9rem; opacity: 0.8; }
+
+/* Badges */
+.surge-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--vp-c-divider);
+}
+.surge-badge--exp { color: #e0a000; border-color: rgba(224, 160, 0, 0.4); background: rgba(224, 160, 0, 0.08); }
+.surge-badge--ok { color: #1fb77a; border-color: rgba(31, 183, 122, 0.4); background: rgba(31, 183, 122, 0.08); }
+
+/* CTA band */
+.surge-cta {
+  margin: 8px auto 0;
+  max-width: 1152px;
+  border-radius: 22px;
+  padding: 44px 32px;
+  text-align: center;
+  background:
+    radial-gradient(600px 240px at 50% -40%, rgba(124, 108, 255, 0.28), transparent 70%),
+    var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+}
+.surge-cta h3 {
+  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-size: 1.7rem;
+  margin: 0 0 10px;
+  border: 0;
+  padding: 0;
+}
+.surge-cta code {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-divider);
+  font-family: var(--vp-font-family-mono);
+}
+
+/* Spacing below the stock home features before custom sections */
+.VPHome .surge-section:first-of-type { margin-top: 8px; }

@@ -6,6 +6,7 @@
 </p>
 
 <p align="center">
+  <a href="https://nowshad7.github.io/Surge/"><strong>📖 Documentation</strong></a> ·
   <a href="#quickstart">Quickstart</a> ·
   <a href="#use-it-with-laravel">Laravel</a> ·
   <a href="#how-it-works">How it works</a> ·

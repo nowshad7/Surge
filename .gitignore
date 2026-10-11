@@ -2,3 +2,8 @@
 composer.lock
 .phpunit.result.cache
 *.log
+
+# Node / VitePress
+/node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
