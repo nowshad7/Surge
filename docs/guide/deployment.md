@@ -80,6 +80,41 @@ Run Surge on several hosts, enable [Redis scaling](/guide/scaling), and put a
 load balancer in front with **sticky sessions** so each WebSocket stays on one
 node.
 
+## Observability
+
+**Metrics.** Surge exposes a Prometheus scrape endpoint on the same port:
+
+```
+GET /metrics
+```
+
+It reports counters and gauges an operator actually watches:
+
+```
+surge_connections_total        # connections accepted
+surge_connections_current      # currently open
+surge_channels_current         # active channels
+surge_messages_received_total  # client → server messages
+surge_messages_sent_total      # server → client messages
+surge_events_published_total   # events published to channels
+```
+
+Point Prometheus at it:
+
+```yaml
+scrape_configs:
+  - job_name: surge
+    static_configs:
+      - targets: ['127.0.0.1:9019']
+```
+
+**Structured logging.** Set `SURGE_LOG_FORMAT=json` for one JSON object per log
+line (for aggregation); the default `text` is human-readable for a terminal.
+
+```bash
+SURGE_LOG_FORMAT=json php artisan surge:serve
+```
+
 ## Resource notes
 
 - Each connection is a file descriptor — raise `ulimit -n` for high connection

@@ -38,6 +38,11 @@ final class PusherHttpApi implements HttpHandler
             ]);
         }
 
+        // Prometheus metrics scrape endpoint.
+        if ($request->method === 'GET' && $request->path === '/metrics') {
+            return new Response(200, $this->protocol->metrics()->toPrometheus(), 'text/plain; version=0.0.4');
+        }
+
         if ($request->method === 'POST' && $request->path === "/apps/{$this->appId}/events") {
             return $this->triggerEvent($request);
         }

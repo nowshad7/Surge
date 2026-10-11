@@ -25,8 +25,18 @@ php artisan vendor:publish --tag=surge-config
 | `scaling.redis.port` | `SURGE_REDIS_PORT` | `6379` | Redis port |
 | `scaling.redis.prefix` | `SURGE_REDIS_PREFIX` | `surge` | Key/channel prefix |
 
-The runtime (`lite` / `turbo`) is selected at launch, not in the config file —
-see the [CLI reference](/reference/cli) (`--runtime` / `SURGE_RUNTIME`).
+Two more settings are launch-time only (env, no config key):
+
+| Env var | Default | Description |
+| --- | --- | --- |
+| `SURGE_RUNTIME` | `lite` | Runtime backend: `lite` or `turbo` |
+| `SURGE_LOG_FORMAT` | `text` | Log output: `text` (human) or `json` (structured) |
+
+A Prometheus metrics endpoint is served at `GET /metrics` — see
+[Deployment → Observability](/guide/deployment#observability).
+
+The runtime (`lite` / `turbo`) is selected at launch — see the
+[CLI reference](/reference/cli) (`--runtime` / `SURGE_RUNTIME`).
 
 ## The published config file
 

@@ -194,10 +194,11 @@ Surge is young. What's real today, and what isn't:
 - [x] Phase 3 — Laravel package (`surge:serve`, config, Echo compatibility)
 - [x] Phase 4 — Redis pub/sub horizontal scaling
 - [x] Phase 5 — README, examples, CI, integration + benchmark harness
+- [x] Observability — Prometheus `/metrics` endpoint + structured JSON logging
 - [~] Multi-core *turbo* runtime (OpenSwoole) — code shipped, **experimental**,
       pending load-testing & benchmarks ([docs/turbo.md](docs/turbo.md))
 - [ ] Shared cross-node presence state
-- [ ] TLS, connection metrics, structured logging, Prometheus export
+- TLS: by design, via a reverse proxy (nginx/Caddy) — see the docs
 
 ## License
 

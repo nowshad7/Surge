@@ -18,6 +18,7 @@ use Nsd7\Surge\Http\PusherHttpApi;
 use Nsd7\Surge\Pusher\PusherProtocol;
 use Nsd7\Surge\Pusher\Signature;
 use Nsd7\Surge\Runtime\SwooleRuntime;
+use Nsd7\Surge\Support\Logger;
 use Nsd7\Surge\Surge;
 
 (static function (array $argv): void {
@@ -54,9 +55,8 @@ use Nsd7\Surge\Surge;
     $port = (int) ($options['port'] ?? $env('SURGE_PORT', '9019'));
     $mode = $options['handler'] ?? $env('SURGE_HANDLER', 'pusher');
 
-    $logger = static function (string $line): void {
-        fwrite(STDOUT, '[' . date('Y-m-d H:i:s') . '] ' . $line . "\n");
-    };
+    $logFormat = $env('SURGE_LOG_FORMAT', 'text') === 'json' ? Logger::JSON : Logger::TEXT;
+    $logger = (new Logger($logFormat))->asCallable();
 
     if ($mode === 'broadcast') {
         $server = new Surge(new BroadcastHandler(), logger: $logger);
