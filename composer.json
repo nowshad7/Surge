@@ -2,8 +2,21 @@
     "name": "nsd7/surge",
     "description": "Surge — a lightweight, self-hosted, Pusher-compatible realtime broadcasting server for Laravel. No required dependencies.",
     "type": "library",
-    "keywords": ["websocket", "realtime", "broadcasting", "laravel", "pusher", "echo", "server"],
+    "keywords": ["websocket", "realtime", "broadcasting", "laravel", "pusher", "echo", "server", "presence", "redis"],
     "license": "MIT",
+    "homepage": "https://nowshad7.github.io/Surge/",
+    "authors": [
+        {
+            "name": "nowshad7",
+            "homepage": "https://github.com/nowshad7",
+            "role": "Maintainer"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/nowshad7/Surge/issues",
+        "source": "https://github.com/nowshad7/Surge",
+        "docs": "https://nowshad7.github.io/Surge/"
+    },
     "require": {
         "php": ">=8.1",
         "ext-json": "*",
